@@ -28,6 +28,9 @@ USE             :: Functions
 USE             :: ExtControl
 USE             :: ROSCO_IO
 USE             :: ZeroMQInterface
+#ifdef FRACTURE_MPC
+USE             :: FractureMPC
+#endif
 
 IMPLICIT NONE
 ! Enable .dll export
@@ -59,6 +62,11 @@ TYPE(PerformanceData),          SAVE           :: PerfData
 TYPE(DebugVariables),           SAVE           :: DebugVar
 TYPE(ErrorVariables),           SAVE           :: ErrVar
 TYPE(ExtControlType),           SAVE           :: ExtDLL
+#ifdef FRACTURE_MPC
+TYPE(FMPC_Parameters),          SAVE           :: FracturePar
+TYPE(FMPC_Table),               SAVE           :: FractureTable
+TYPE(FMPC_State),               SAVE           :: FractureState
+#endif
 
 
 CHARACTER(*),                   PARAMETER      :: RoutineName = 'ROSCO'
@@ -84,6 +92,10 @@ CALL ReadAvrSWAP(avrSWAP, LocalVar, CntrPar, ErrVar)
 IF (ErrVar%aviFAIL >= 0) THEN
     CALL SetParameters(avrSWAP, accINFILE, SIZE(avcMSG), CntrPar, LocalVar, objInst, PerfData, RootName, ErrVar)
 ENDIF
+#ifdef FRACTURE_MPC
+IF (LocalVar%iStatus==0 .AND. ErrVar%aviFAIL>=0) &
+    CALL FMPC_Init(FracturePar,FractureTable,FractureState,LocalVar,CntrPar,RootName,ErrVar)
+#endif
 
 ! Call external controller, if desired
 IF (CntrPar%Ext_Mode > 0 .AND. ErrVar%aviFAIL >= 0) THEN
@@ -142,6 +154,10 @@ ELSEIF ((LocalVar%iStatus == -1) .AND. (CntrPar%ZMQ_Mode > 0)) THEN
         CALL UpdateZeroMQ(LocalVar, CntrPar, ErrVar)
 END IF
 
+#ifdef FRACTURE_MPC
+IF (ErrVar%aviFAIL>=0) &
+    CALL FMPC_Step(FracturePar,FractureTable,FractureState,CntrPar,LocalVar,avrSWAP,ErrVar)
+#endif
 IF ((CntrPar%LoggingLevel > 0) .AND. (ErrVar%aviFAIL >= 0)) THEN
     CALL Debug(LocalVar, CntrPar, DebugVar, ErrVar, avrSWAP, RootName, SIZE(avcOUTNAME))
 END IF 

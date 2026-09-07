@@ -1,0 +1,18 @@
+{
+  "healthy_command_max_difference": 0.0,
+  "mpc_rows": 40,
+  "mpc_statuses": {
+    "1": 40
+  },
+  "duplicate_timestamp_exact": true,
+  "rate_and_absolute_limits": true,
+  "low_speed_fallback": true,
+  "out_of_domain_fallback": true,
+  "short_swap_guard": true,
+  "fracture_ramp_final_and_latch": true,
+  "qp_failure_fallback": true,
+  "independent_qp_known_solution": true,
+  "fault_metadata_mismatch_fallback": true,
+  "native_shutdown_exact_priority": true,
+  "trace_example": "C:\\Users\\11653\\AppData\\Local\\Temp\\rosco_fmpc_rmuayxa9\\run.FMPC.csv"
+}

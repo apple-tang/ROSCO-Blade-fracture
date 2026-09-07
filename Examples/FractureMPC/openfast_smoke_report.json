@@ -1,0 +1,16 @@
+{
+  "normal_termination": true,
+  "returncode": 0,
+  "fracture_time_s": 5,
+  "fracture_ramp_s": 2,
+  "tmax_s": 12,
+  "log": "D:\\zju_soft_study\\world model\\OpenFAST\\ROSCO-Blade-fracture\\Examples\\FractureMPC\\simulation_test_out\\run.log",
+  "mpc_solves": 99,
+  "ramp_guard_rows": 40,
+  "first_activation_s": 5.000999927520752,
+  "first_mpc_s": 7.019000053405762,
+  "maximum_qp_violation": 2.684089062121586e-12,
+  "final_rotor_speed_rpm": 4.029565723497403,
+  "final_pitch_deg": 21.54815018559317,
+  "nonzero_tower_displacement": true
+}

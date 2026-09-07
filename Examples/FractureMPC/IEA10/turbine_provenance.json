@@ -1,0 +1,11 @@
+{
+  "gain_source": "D:\\zju_soft_study\\world model\\OpenFAST\\IEA-10.0-198-RWT-master\\linearization_results\\local_load_derivatives\\10mw_6d_local_load_gains.csv",
+  "rows": 853,
+  "rated_rpm": 8.68,
+  "ed_source": "D:\\zju_soft_study\\world model\\OpenFAST\\IEA-10.0-198-RWT-master\\openfast_5MWProgram\\IEA-10.0-198-RWT_ElastoDyn.dat",
+  "rotor_inertia_fallback": 151981895.8006489,
+  "tower_modal_mass": 983116.693760257,
+  "tower_modal_stiffness": 5126426.224067909,
+  "tower_modal_damping": 44899.33273540497,
+  "approximation": "Rigid-base first-tower-mode Rayleigh estimate; no SubDyn/soil or gravity-stiffening calibration. Runtime rotor-only inertia preferred."
+}

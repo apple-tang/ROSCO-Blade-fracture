@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.6)
+if(POLICY CMP0091)
+    cmake_policy(SET CMP0091 NEW)
+endif()
 project(ROSCO VERSION 2.9.0 LANGUAGES Fortran C)
+option(ROSCO_FRACTURE_MPC "Build the optional gain-table fracture MPC" OFF)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/ftnmods")
 
@@ -97,6 +101,25 @@ if(PC_ZeroMQ_FOUND)
 endif()
 
 add_library(discon SHARED ${SOURCES})
+if(ROSCO_FRACTURE_MPC)
+    enable_language(CXX)
+    find_path(QPOASES_INCLUDE_DIR qpOASES.hpp REQUIRED)
+    find_library(QPOASES_LIBRARY NAMES qpOASES REQUIRED)
+    target_sources(discon PRIVATE
+        src/FractureMPC_Types.f90 src/FractureMPC_Table.f90
+        src/FractureMPC_Model.f90 src/FractureMPC.f90)
+    add_library(fmpc_qp STATIC src/FractureMPC_QP.cpp)
+    target_include_directories(fmpc_qp PRIVATE ${QPOASES_INCLUDE_DIR})
+    target_compile_features(fmpc_qp PRIVATE cxx_std_11)
+    set_target_properties(fmpc_qp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    if(MSVC)
+        set_target_properties(fmpc_qp PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif()
+    target_compile_definitions(discon PRIVATE FRACTURE_MPC)
+    target_include_directories(discon PRIVATE ${QPOASES_INCLUDE_DIR})
+    target_link_libraries(discon PRIVATE fmpc_qp ${QPOASES_LIBRARY})
+    set_target_properties(discon PROPERTIES LINKER_LANGUAGE Fortran)
+endif()
 
 if(PC_ZeroMQ_FOUND)
 	target_include_directories(discon PUBLIC ${ZeroMQ_INCLUDE_DIR})
