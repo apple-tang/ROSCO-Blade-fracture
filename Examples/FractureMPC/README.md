@@ -1,5 +1,9 @@
 # ROSCO gain-table fracture MPC
 
+Controller release: `ROSCO 2.10.5+fracture.mpc.1`, based on upstream ROSCO
+`v2.10.5`. The same optional solver modules are turbine-independent; turbine
+configuration and validation artifacts are supplied separately.
+
 This is an optional ROSCO-native research controller. Normal ROSCO pitch and
 torque control is unchanged until the fracture transition is latched. All
 configuration uses named `value ! FMPC_Parameter` entries in DISCON.IN.
