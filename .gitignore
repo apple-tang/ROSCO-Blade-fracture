@@ -92,3 +92,5 @@ rosco/test/testing
 # OpenFAST outputs
 outputs/
 
+*.lib
+*.dll
