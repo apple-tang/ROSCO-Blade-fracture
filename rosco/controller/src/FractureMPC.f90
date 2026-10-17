@@ -56,9 +56,6 @@ CONTAINS
         CALL ParseInput(Lines,'FMPC_NPred',P%NPred,File,E,.FALSE.)
         CALL ParseInput(Lines,'FMPC_NControl',P%NControl,File,E,.FALSE.)
         CALL ParseInput(Lines,'FMPC_Iterations',P%Iterations,File,E,.FALSE.)
-        CALL ParseInput(Lines,'FMPC_RotorInertia',P%RotorInertia,File,E,.FALSE.)
-        CALL ParseInput(Lines,'FMPC_GeneratorInertia',P%GeneratorInertia,File,E,.FALSE.)
-        CALL ParseInput(Lines,'FMPC_GearRatio',P%GearRatio,File,E,.FALSE.)
         CALL ParseInput(Lines,'FMPC_TowerMass',P%TowerMass,File,E,.FALSE.)
         CALL ParseInput(Lines,'FMPC_TowerDamping',P%TowerDamping,File,E,.FALSE.)
         CALL ParseInput(Lines,'FMPC_TowerStiffness',P%TowerStiffness,File,E,.FALSE.)
@@ -77,8 +74,8 @@ CONTAINS
         IF (ALLOCATED(Values)) DEALLOCATE(Values)
         CALL ParseAry(Lines,'FMPC_LookupScale',Values,6,File,E,.FALSE.); IF (E%aviFAIL>=0) P%LookupScale=Values
         IF (E%aviFAIL<0) RETURN
-        IF (.NOT.ALL(IEEE_IS_FINITE([P%DT,P%TriggerTime,P%FractureS,P%RotorInertia,P%GeneratorInertia, &
-            P%GearRatio,P%TowerMass,P%TowerDamping,P%TowerStiffness,P%PitchTau,P%TorqueTau,P%FilterTau, &
+        IF (.NOT.ALL(IEEE_IS_FINITE([P%DT,P%TriggerTime,P%FractureS,C%WE_Jtot, &
+            C%WE_GearboxRatio,P%TowerMass,P%TowerDamping,P%TowerStiffness,P%PitchTau,P%TorqueTau,P%FilterTau, &
             P%Decel,P%MinSpeed,P%MaxDistance])) .OR. .NOT.ALL(IEEE_IS_FINITE(P%Q)) .OR. &
             .NOT.ALL(IEEE_IS_FINITE(P%R)) .OR. .NOT.ALL(IEEE_IS_FINITE(P%StateScale)) .OR. &
             .NOT.ALL(IEEE_IS_FINITE(P%LookupScale))) THEN
@@ -87,18 +84,21 @@ CONTAINS
         IF (P%Mode/=1 .OR. P%Trigger<1 .OR. P%Trigger>2 .OR. P%Blade<1 .OR. P%Blade>3 .OR. &
             P%ExtendedMotion<0 .OR. P%ExtendedMotion>1 .OR. P%DT<V%DT .OR. P%DT>0.2_DbKi .OR. &
             P%NControl<1 .OR. 2*P%NControl>FMPC_MAX_U .OR. P%NPred<P%NControl .OR. P%NPred>160 .OR. &
-            P%Iterations<1 .OR. P%RotorInertia<=0 .OR. P%GeneratorInertia<0 .OR. P%GearRatio<1 .OR. &
+            P%Iterations<1 .OR. C%WE_GearboxRatio<1 .OR. &
             P%TowerMass<=0 .OR. P%TowerStiffness<=0 .OR. P%TowerDamping<0 .OR. &
             P%PitchTau<P%DT .OR. P%TorqueTau<P%DT .OR. P%FilterTau<=0 .OR. P%Decel<=0 .OR. &
             P%MinSpeed<=0 .OR. P%MaxDistance<=0 .OR. ANY(P%StateScale<=0) .OR. ANY(P%LookupScale<=0) .OR. &
-            ANY(P%Q<0) .OR. ANY(P%R<=0) .OR. C%VS_MaxTq<=0 .OR. C%VS_MaxRat<=0 .OR. C%PC_MaxRat<=0) THEN
+            ANY(P%Q<0) .OR. ANY(P%R<=0) .OR. C%WE_Jtot<=0 .OR. C%VS_MaxTq<=0 .OR. &
+            C%VS_MaxRat<=0 .OR. C%PC_MaxRat<=0) THEN
             E%aviFAIL=-1; E%ErrMsg='FMPC: invalid mode, physical parameters, horizon, sample time or limits'; RETURN
         ENDIF
         CALL GetPath(File,Directory)
         IF (P%TableFile(1:1)/='/' .AND. P%TableFile(2:2)/=':') P%TableFile=TRIM(Directory)//TRIM(P%TableFile)
         CALL FMPC_LoadTable(P,T,E)
         IF (E%aviFAIL<0) RETURN
-        S%Inertia=P%RotorInertia+P%GeneratorInertia*P%GearRatio**2
+        ! ROSCO already owns the intact equivalent drivetrain inertia. The
+        ! modified OpenFAST packet replaces its rotor component after fracture.
+        S%Inertia=C%WE_Jtot
         S%LastOmega=V%RotSpeed; S%Initialized=.TRUE.
         OPEN(NEWUNIT=S%TraceUnit,FILE=TRIM(Root)//'.FMPC.csv',STATUS='REPLACE',ACTION='WRITE',IOSTAT=IOS)
         IF (IOS/=0) THEN
@@ -128,6 +128,7 @@ CONTAINS
         REAL(ReKi), INTENT(INOUT) :: Swap(*)
         TYPE(ErrorVariables), INTENT(INOUT) :: E
         REAL(DbKi) :: Dt,Pitch,Wind,Omega,Z(6),G(12),X0(6),AFilter,NewApplied(2),Limits(2),PreviousPitch,NewCommand(2),QPResidual
+        REAL(DbKi) :: PacketDrivetrainInertia
         INTEGER :: Extent,FaultStatus,QPCode
         LOGICAL :: Triggered,OK,PacketOK,Emergency,LogNow
         IF (P%Mode==0 .OR. .NOT.S%Initialized) RETURN
@@ -160,11 +161,13 @@ CONTAINS
         ! Record 129 advertises the allocated extent in the OpenFAST Bladed interface.
         Extent=0
         IF (IEEE_IS_FINITE(REAL(Swap(129),DbKi))) Extent=NINT(Swap(129))
-        PacketOK=.FALSE.; FaultStatus=0
-        IF (Extent>=1027) THEN
+        PacketOK=.FALSE.; FaultStatus=0; PacketDrivetrainInertia=0
+        IF (Extent>=1028) THEN
             IF (IEEE_IS_FINITE(REAL(Swap(1027),DbKi))) FaultStatus=NINT(Swap(1027))
-            PacketOK=FaultStatus>=1 .AND. FaultStatus<=2 .AND. IEEE_IS_FINITE(REAL(Swap(1023),DbKi)) &
-                .AND. Swap(1023)>0.05_DbKi*P%RotorInertia .AND. Swap(1023)<10*P%RotorInertia &
+            PacketDrivetrainInertia=REAL(Swap(1028),DbKi)
+            PacketOK=FaultStatus>=1 .AND. FaultStatus<=2 .AND. IEEE_IS_FINITE(PacketDrivetrainInertia) &
+                .AND. PacketDrivetrainInertia>0.01_DbKi*C%WE_Jtot &
+                .AND. PacketDrivetrainInertia<=1.05_DbKi*C%WE_Jtot &
                 .AND. ABS(Swap(1025)-P%FractureS)<1e-4_DbKi
         ENDIF
         Triggered=.FALSE.
@@ -187,7 +190,7 @@ CONTAINS
             S%Active=.TRUE.; S%StartTime=V%Time; S%StartOmega=Omega
             S%Command=S%Applied; S%LastSolve=-1
         ENDIF
-        IF (PacketOK) S%Inertia=REAL(Swap(1023),DbKi)+P%GeneratorInertia*P%GearRatio**2
+        IF (PacketOK) S%Inertia=PacketDrivetrainInertia
         Emergency=.FALSE.
         IF (C%SD_Mode>0) Emergency=V%SD_Trigger>0
         LogNow=.FALSE.
@@ -204,7 +207,8 @@ CONTAINS
             IF (Emergency) S%Status=6
             IF (S%Status==1) THEN
                 X0=[Omega,S%TowerX,S%TowerV,REAL(Swap(23),DbKi)/C%VS_MaxTq,Pitch,0.0_DbKi]
-                CALL FMPC_Optimize(P,S,G,Z,X0,V%Time,C%VS_MaxTq,C%VS_MaxRat,C%PC_MinPit,C%PC_MaxPit,C%PC_MaxRat, &
+                CALL FMPC_Optimize(P,S,G,Z,X0,V%Time,C%VS_MaxTq,C%WE_GearboxRatio,C%VS_MaxRat, &
+                                   C%PC_MinPit,C%PC_MaxPit,C%PC_MaxRat, &
                                    NewCommand,QPCode,QPResidual)
                 S%QPStatus=QPCode; S%LastQPResidual=QPResidual
                 IF (S%QPStatus==0) S%Command=NewCommand

@@ -81,26 +81,53 @@ def main():
     damping=2*zeta*np.sqrt(mass*stiffness)
     cfg={'FMPC_Mode':1,'FMPC_Trigger':1,'FMPC_ExtendedMotion':1,'FMPC_TriggerTime':30,
          'FMPC_Blade':a.blade,'FMPC_FractureS':a.fracture_s,'FMPC_DT':.05,'FMPC_NPred':40,
-         'FMPC_NControl':10,'FMPC_Iterations':200,'FMPC_RotorInertia':jrf,
-         'FMPC_GeneratorInertia':gen,'FMPC_GearRatio':gear,'FMPC_TowerMass':mass,
+         'FMPC_NControl':10,'FMPC_Iterations':200,'FMPC_TowerMass':mass,
          'FMPC_TowerDamping':damping,'FMPC_TowerStiffness':stiffness,'FMPC_PitchTau':.25,
          'FMPC_TorqueTau':.25,'FMPC_FilterTau':.2,'FMPC_Decel':.02,'FMPC_MinSpeed':np.pi/30,
          'FMPC_MaxDistance':3,'FMPC_TableFile':'"FMPC_Gains.txt"',
          'FMPC_Q':'30 40 80 0.1 10','FMPC_R':'1 60',
          'FMPC_StateScale':f'{a.rated_rpm*np.pi/30:.9g} 5 2 1 1.570796327',
          'FMPC_LookupScale':'0.104719755 0.087266463 2 0.2 1 1'}
+    comments={
+        'FMPC_Mode':'Fracture MPC mode {0: disabled, 1: enabled}',
+        'FMPC_Trigger':'Activation source {1: modified OpenFAST fracture packet, 2: configured trigger time}',
+        'FMPC_ExtendedMotion':'Tower feedback {0: leaky acceleration observer, 1: packet displacement/velocity}',
+        'FMPC_TriggerTime':'Timed-test activation time [s], used only when FMPC_Trigger = 2',
+        'FMPC_Blade':'Fractured blade ID {1, 2, 3}; must match the gain-table metadata',
+        'FMPC_FractureS':'Nondimensional span where the fractured segment begins [-]',
+        'FMPC_DT':'MPC optimization update period [s]',
+        'FMPC_NPred':'Number of prediction intervals [-]',
+        'FMPC_NControl':'Number of optimized control intervals [-]',
+        'FMPC_Iterations':'Maximum qpOASES working-set iterations [-]',
+        'FMPC_TowerMass':'Effective first fore-aft tower-mode mass [kg]',
+        'FMPC_TowerDamping':'Effective first fore-aft tower-mode damping [N s/m]',
+        'FMPC_TowerStiffness':'Effective first fore-aft tower-mode stiffness [N/m]',
+        'FMPC_PitchTau':'Post-fracture first-order pitch-actuator time constant [s]',
+        'FMPC_TorqueTau':'Post-fracture first-order torque-actuator time constant [s]',
+        'FMPC_FilterTau':'Rotor/tower acceleration low-pass filter time constant [s]',
+        'FMPC_Decel':'Post-fracture rotor-speed reference deceleration [rad/s^2]',
+        'FMPC_MinSpeed':'Minimum rotor speed for MPC operation [rad/s]',
+        'FMPC_MaxDistance':'Maximum normalized gain-table lookup distance [-]',
+        'FMPC_TableFile':'Gain-table path, relative to DISCON.IN unless absolute [-]',
+        'FMPC_Q':'State weights [Omega, tower_x, tower_v, normalized_torque, pitch]',
+        'FMPC_R':'Command regularization weights [normalized_torque, pitch]',
+        'FMPC_StateScale':'State scales [Omega(rad/s), tower_x(m), tower_v(m/s), torque(-), pitch(rad)]',
+        'FMPC_LookupScale':'Lookup scales [Omega(rad/s), beta(rad), U(m/s), alpha(rad/s^2), sin(psi), cos(psi)]',
+    }
     text=a.base_discon.read_text()
     text+='\n!------- FRACTURE MPC --------------------------------------------------\n'
-    text+=''.join(f'{v!s:<35} ! {k}\n' for k,v in cfg.items())
+    text+=''.join(f'{v!s:<35} ! {k:<22} - {comments[k]}\n' for k,v in cfg.items())
     (a.out/'DISCON.IN').write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip()+'\n')
     perf=re.search(r'"([^"]+)"\s*!\s*PerfFileName',text)
     if perf:
         src=a.base_discon.parent/perf.group(1)
         (a.out/src.name).write_text('\n'.join(line.rstrip() for line in src.read_text().splitlines()).rstrip()+'\n')
     report={'gain_source':str(a.gain_csv.resolve()),'rows':len(numbers),'rated_rpm':a.rated_rpm,
-            'ed_source':str(a.ed.resolve()),'rotor_inertia_fallback':jrf,'tower_modal_mass':mass,
+            'ed_source':str(a.ed.resolve()),'derived_fractured_rotor_inertia_reference':jrf,
+            'derived_fractured_drivetrain_inertia_reference':jrf+gen*gear**2,'tower_modal_mass':mass,
             'tower_modal_stiffness':stiffness,'tower_modal_damping':damping,
-            'approximation':'Rigid-base first-tower-mode Rayleigh estimate; no SubDyn/soil or gravity-stiffening calibration. Runtime rotor-only inertia preferred.'}
+            'inertia_source':'Runtime total equivalent drivetrain inertia is read from modified OpenFAST avrSWAP(1028); derived values are provenance only.',
+            'approximation':'Rigid-base first-tower-mode Rayleigh estimate; no SubDyn/soil or gravity-stiffening calibration.'}
     (a.out/'turbine_provenance.json').write_text(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

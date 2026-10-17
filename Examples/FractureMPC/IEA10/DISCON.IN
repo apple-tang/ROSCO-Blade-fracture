@@ -199,30 +199,27 @@
 0                   ! StC_GroupIndex    - First index for structural control group, options specified in ServoDyn summary output
 
 !------- FRACTURE MPC --------------------------------------------------
-1                                   ! FMPC_Mode
-1                                   ! FMPC_Trigger
-1                                   ! FMPC_ExtendedMotion
-30                                  ! FMPC_TriggerTime
-1                                   ! FMPC_Blade
-0.3                                 ! FMPC_FractureS
-0.05                                ! FMPC_DT
-40                                  ! FMPC_NPred
-10                                  ! FMPC_NControl
-200                                 ! FMPC_Iterations
-151981895.8006489                   ! FMPC_RotorInertia
-3801700.0                           ! FMPC_GeneratorInertia
-1.0                                 ! FMPC_GearRatio
-983116.693760257                    ! FMPC_TowerMass
-44899.33273540497                   ! FMPC_TowerDamping
-5126426.224067909                   ! FMPC_TowerStiffness
-0.25                                ! FMPC_PitchTau
-0.25                                ! FMPC_TorqueTau
-0.2                                 ! FMPC_FilterTau
-0.02                                ! FMPC_Decel
-0.10471975511965977                 ! FMPC_MinSpeed
-3                                   ! FMPC_MaxDistance
-"FMPC_Gains.txt"                    ! FMPC_TableFile
-30 40 80 0.1 10                     ! FMPC_Q
-1 60                                ! FMPC_R
-0.908967474 5 2 1 1.570796327       ! FMPC_StateScale
-0.104719755 0.087266463 2 0.2 1 1   ! FMPC_LookupScale
+1                                   ! FMPC_Mode              - Fracture MPC mode {0: disabled, 1: enabled}
+1                                   ! FMPC_Trigger           - Activation source {1: modified OpenFAST fracture packet, 2: configured trigger time}
+1                                   ! FMPC_ExtendedMotion    - Tower feedback {0: leaky acceleration observer, 1: packet displacement/velocity}
+30                                  ! FMPC_TriggerTime       - Timed-test activation time [s], used only when FMPC_Trigger = 2
+1                                   ! FMPC_Blade             - Fractured blade ID {1, 2, 3}; must match the gain-table metadata
+0.3                                 ! FMPC_FractureS         - Nondimensional span where the fractured segment begins [-]
+0.05                                ! FMPC_DT                - MPC optimization update period [s]
+40                                  ! FMPC_NPred             - Number of prediction intervals [-]
+10                                  ! FMPC_NControl          - Number of optimized control intervals [-]
+200                                 ! FMPC_Iterations        - Maximum qpOASES working-set iterations [-]
+983116.693760257                    ! FMPC_TowerMass         - Effective first fore-aft tower-mode mass [kg]
+44899.33273540497                   ! FMPC_TowerDamping      - Effective first fore-aft tower-mode damping [N s/m]
+5126426.224067909                   ! FMPC_TowerStiffness    - Effective first fore-aft tower-mode stiffness [N/m]
+0.25                                ! FMPC_PitchTau          - Post-fracture first-order pitch-actuator time constant [s]
+0.25                                ! FMPC_TorqueTau         - Post-fracture first-order torque-actuator time constant [s]
+0.2                                 ! FMPC_FilterTau         - Rotor/tower acceleration low-pass filter time constant [s]
+0.02                                ! FMPC_Decel             - Post-fracture rotor-speed reference deceleration [rad/s^2]
+0.10471975511965977                 ! FMPC_MinSpeed          - Minimum rotor speed for MPC operation [rad/s]
+3                                   ! FMPC_MaxDistance       - Maximum normalized gain-table lookup distance [-]
+"FMPC_Gains.txt"                    ! FMPC_TableFile         - Gain-table path, relative to DISCON.IN unless absolute [-]
+30 40 80 0.1 10                     ! FMPC_Q                 - State weights [Omega, tower_x, tower_v, normalized_torque, pitch]
+1 60                                ! FMPC_R                 - Command regularization weights [normalized_torque, pitch]
+0.908967474 5 2 1 1.570796327       ! FMPC_StateScale        - State scales [Omega(rad/s), tower_x(m), tower_v(m/s), torque(-), pitch(rad)]
+0.104719755 0.087266463 2 0.2 1 1   ! FMPC_LookupScale       - Lookup scales [Omega(rad/s), beta(rad), U(m/s), alpha(rad/s^2), sin(psi), cos(psi)]

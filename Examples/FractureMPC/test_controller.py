@@ -33,13 +33,15 @@ class Driver:
         self.infile=str(self.folder/'DISCON.IN').encode();self.root=str(self.folder/'run').encode()
         self.started=False
 
-    def step(self,t,omega=.8,beta=.30,wind=10,extent=3300,packet=0,torque=1e6,fracture_s=.3):
+    def step(self,t,omega=.8,beta=.30,wind=10,extent=3300,packet=0,torque=1e6,fracture_s=.3,
+             drivetrain_inertia=1.558017e8):
         s=self.swap;s[0]=0 if not self.started else 1;s[1]=t;s[2]=.01
         s[3]=beta;s[32:34]=beta;s[19]=omega;s[20]=omega;s[22]=torque
         s[13]=omega*torque;s[14]=s[13]*.95;s[26]=wind
         s[48]=2000;s[49]=len(self.infile);s[50]=len(self.root)
         s[59]=.9+omega*t;s[60]=3;s[128]=extent
         s[1018]=0;s[1020]=0;s[1022]=1.52e8;s[1024]=fracture_s;s[1025]=.02;s[1026]=packet
+        s[1027]=drivetrain_inertia
         self.fun(s.ctypes.data_as(ct.POINTER(ct.c_float)),ct.byref(self.fail),self.infile,self.root,self.msg)
         self.started=True
         if self.fail.value<0:raise RuntimeError(self.msg.value.decode(errors='replace'))
@@ -100,6 +102,11 @@ def main():
     for k in range(120):f.step(k*.01,packet=0 if k<50 else (1 if k<65 else (2 if k<100 else 0)))
     f.finish();pkt=pd.read_csv(f.folder/'run.FMPC.csv')
     assert (pkt.status==2).any() and (pkt.status==1).any() and (pkt.status==7).any(),pkt.status.value_counts()
+    np.testing.assert_allclose(pkt.inertia_kgm2,1.558017e8,rtol=2e-7)
+    invalid_inertia=Driver(DLL,text)
+    for k in range(80):invalid_inertia.step(k*.01,packet=0 if k<50 else 2,drivetrain_inertia=3e8)
+    invalid_inertia.finish();bad_inertia=pd.read_csv(invalid_inertia.folder/'run.FMPC.csv')
+    assert (bad_inertia.status==7).all()
     limited=Driver(DLL,replace(on,'FMPC_Iterations',1))
     for k in range(80):limited.step(k*.01)
     limited.finish();failure=pd.read_csv(limited.folder/'run.FMPC.csv')
@@ -124,7 +131,8 @@ def main():
             'mpc_statuses':{str(k):int(v) for k,v in tr.status.value_counts().items()},
             'duplicate_timestamp_exact':True,'rate_and_absolute_limits':True,
             'low_speed_fallback':True,'out_of_domain_fallback':True,'short_swap_guard':True,
-            'fracture_ramp_final_and_latch':True,'qp_failure_fallback':True,
+            'fracture_ramp_final_and_latch':True,'runtime_inertia_update':True,
+            'invalid_runtime_inertia_fallback':True,'qp_failure_fallback':True,
             'independent_qp_known_solution':True,'fault_metadata_mismatch_fallback':True,
             'native_shutdown_exact_priority':True,
             'trace_example':str(b.folder/'run.FMPC.csv')}

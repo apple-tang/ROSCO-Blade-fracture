@@ -7,7 +7,6 @@ MODULE FractureMPC_Types
         INTEGER(IntKi) :: Mode=0, Trigger=1, ExtendedMotion=1, Blade=1
         INTEGER(IntKi) :: NPred=40, NControl=10, Iterations=100
         REAL(DbKi) :: DT=0.05_DbKi, TriggerTime=9999, FractureS=0.3_DbKi
-        REAL(DbKi) :: RotorInertia=0, GeneratorInertia=0, GearRatio=1
         REAL(DbKi) :: TowerMass=0, TowerDamping=0, TowerStiffness=0
         REAL(DbKi) :: PitchTau=0.25_DbKi, TorqueTau=0.25_DbKi, FilterTau=0.2_DbKi
         REAL(DbKi) :: Decel=0.02_DbKi, MinSpeed=0.104719755_DbKi, MaxDistance=3

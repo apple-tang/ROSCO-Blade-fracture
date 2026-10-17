@@ -59,19 +59,27 @@ instantaneous-fracture validation or a complete shutdown performance study.
 |---|---|
 | 129 | Advertised avrSWAP extent; checked before reading extended records |
 | 1019, 1021 | Tower fore-aft velocity (m/s), displacement (m) |
-| 1023 | Rotor-only inertia (blades plus hub), kg m^2 |
+| 1023 | Rotor-only inertia retained for the existing 5 MW controller, kg m^2 |
 | 1025 | Fracture location, matched to gain-table metadata |
 | 1027 | 0 healthy, 1 property ramp, 2 final fractured properties |
+| 1028 | Total equivalent drivetrain inertia used by ROSCO FMPC, kg m^2 |
 
 The table's blade ID must match the plant configuration. The current packet
 does not transmit blade ID, so it cannot be automatically checked against the plant.
-The runtime rotor inertia is augmented with generator inertia times gearbox
-ratio squared exactly once, consistent with the 5 MW source's inertia boundary.
+There are no separate rotor, generator-inertia, or gearbox-ratio values in the
+FMPC section of `DISCON.IN`. Before fracture the controller uses ROSCO's existing
+`WE_Jtot`. After fracture, modified OpenFAST calculates
+`J_rotor + GenIner * GBRatio^2` directly from ElastoDyn and publishes the result
+in record 1028. Record 1023 remains rotor-only so the existing 5 MW controller
+interface is unchanged. The prediction model uses ROSCO's existing `WE_GearboxRatio` for
+generator-torque conversion. Non-finite, nonpositive, or implausibly large packet
+values are rejected.
 The normal unmodified OpenFAST executable used to generate LIN files does not
-publish this fracture packet. Nonlinear fault runs need the modified executable.
+publish these fracture records. Nonlinear fault runs need the modified executable.
 
 `FMPC_Trigger=2` is an explicitly timed test switch using `FMPC_TriggerTime` and
-configured fallback inertia. It does not itself fracture the plant.
+the intact `WE_Jtot`. It does not itself fracture the plant and is not a substitute
+for the modified OpenFAST packet in a physical fracture simulation.
 No automatic detection of physical blade loss from vibration is implemented.
 The transition is latched: losing the packet after a fault cannot return to normal generation.
 Unsupported packet geometry or inertia invokes fallback rather than healthy control.

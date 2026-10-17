@@ -13,10 +13,10 @@ MODULE FractureMPC_Model
         END FUNCTION
     END INTERFACE
 CONTAINS
-    SUBROUTINE FMPC_Optimize(P,S,G,Z,X0,Now,QScale,TqRate,PitchMin,PitchMax,PitchRate,Command,Code,Residual)
+    SUBROUTINE FMPC_Optimize(P,S,G,Z,X0,Now,QScale,GearRatio,TqRate,PitchMin,PitchMax,PitchRate,Command,Code,Residual)
         TYPE(FMPC_Parameters), INTENT(IN) :: P
         TYPE(FMPC_State), INTENT(IN) :: S
-        REAL(DbKi), INTENT(IN) :: G(12),Z(6),X0(6),Now,QScale,TqRate,PitchMin,PitchMax,PitchRate
+        REAL(DbKi), INTENT(IN) :: G(12),Z(6),X0(6),Now,QScale,GearRatio,TqRate,PitchMin,PitchMax,PitchRate
         REAL(DbKi), INTENT(OUT) :: Command(2),Residual
         INTEGER, INTENT(OUT) :: Code
         REAL(DbKi) :: AC(6,6),BC(6,2),AD(6,6),BD(6,2),Integral(6,6),Identity(6,6),FC(6)
@@ -36,7 +36,7 @@ CONTAINS
         Psi=ATAN2(Z(5),Z(6)); GTpsi=G(5)*COS(Psi)-G(6)*SIN(Psi)
         GFpsi=G(11)*COS(Psi)-G(12)*SIN(Psi)
         AC(1,1)=G(1)/Jeff; AC(1,3)=-G(3)/Jeff
-        AC(1,4)=-P%GearRatio*QScale/Jeff; AC(1,5)=G(2)/Jeff; AC(1,6)=GTpsi/Jeff
+        AC(1,4)=-GearRatio*QScale/Jeff; AC(1,5)=G(2)/Jeff; AC(1,6)=GTpsi/Jeff
         AC(2,3)=1
         AlphaCoupling=G(10)/P%TowerMass
         AC(3,:)=AlphaCoupling*AC(1,:)
